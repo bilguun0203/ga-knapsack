@@ -9,7 +9,7 @@ class Chromosome:
     def __init__(self, genes_length):
         self.genes = np.random.choice([False, True], size=genes_length)
         self.fitness = 0
-        self.volume = 0
+        self.weight = 0
     def calc_fitness(self, data, criterion):
         fitness = np.sum(data[self.genes], axis=0)
         while fitness[1] > criterion:
@@ -17,8 +17,8 @@ class Chromosome:
             self.genes[ones[random.randint(0, len(ones)-1)]] = False
             fitness = np.sum(data[self.genes], axis=0)
         self.fitness = fitness[0]
-        self.volume = fitness[1]
-        return [self.fitness, self.volume]
+        self.weight = fitness[1]
+        return [self.fitness, self.weight]
 
     def crossover(self, individual, pos):
         offspring1 = Chromosome(len(self.genes))
@@ -41,9 +41,9 @@ class Population:
         self.criterion = criterion
         self.population_size = population_size
         self.chr_fitness = np.zeros(self.population_size)
-        self.chr_volume = np.zeros(self.population_size)
+        self.chr_weight = np.zeros(self.population_size)
         self.offs_fitness = np.zeros(self.population_size)
-        self.offs_volume = np.zeros(self.population_size)
+        self.offs_weight = np.zeros(self.population_size)
         self.fittest_chromosomes = []
         self.genes_length = genes_length
         self.init_population(genes_length)
@@ -56,18 +56,18 @@ class Population:
 
     def calc_fitness(self, offspring=False):
         fitness = []
-        volume = []
+        weight = []
         chromosomes = self.offsprings if offspring else self.chromosomes
         for i in chromosomes:
             f, v = i.calc_fitness(self.data, self.criterion)
             fitness.append(f)
-            volume.append(v)
+            weight.append(v)
         if offspring:
             self.offs_fitness = fitness
-            self.offs_volume = volume
+            self.offs_weight = weight
         else:
             self.chr_fitness = fitness
-            self.chr_volume = volume
+            self.chr_weight = weight
         return self
 
     def get_fittest(self):
@@ -86,9 +86,9 @@ class Population:
 
 def load(path):
     n = 0
-    v = 0
+    w = 0
     F = []
-    V = []
+    W = []
     with open(path, 'r') as f:
         line = f.readline()
         n = int(line)
@@ -99,20 +99,20 @@ def load(path):
                 for i in items:
                     F.append(float(i))
         line = f.readline()
-        v = int(line)
-        while len(V) < n:
+        w = int(line)
+        while len(W) < n:
             line = f.readline()
             if line != '':
                 items = line.split(' ')
                 for i in items:
-                    V.append(float(i))
-    return n, v, np.array((F, V)).T
+                    W.append(float(i))
+    return n, w, np.array((F, W)).T
 
 
 def generate_data(n, wrange, vrange):
     f = np.random.randint(1, wrange, size=n)
-    v = np.random.randint(1, vrange, size=n)
-    return np.array((f, v)).T
+    w = np.random.randint(1, vrange, size=n)
+    return np.array((f, w)).T
 
 
 def check_condition(population):
@@ -139,9 +139,6 @@ def fit(population, generation, mutation_probability=0.01, selection='group'):
         best_i = np.argmax(population.chr_fitness)
         if not SILENT:
             print(population.chromosomes[best_i].fitness)
-        # print('\tF:', population.chromosomes[best_i].fitness)
-        # print('\tG:', np.argwhere(population.chromosomes[best_i].genes).tolist())
-        # print('\tV:', population.chromosomes[best_i].volume)
     return population.chromosomes[best_i]
 
 
@@ -206,10 +203,10 @@ if __name__ == "__main__":
     parser.add_argument('--silent', action='store_true', help='silence output')
     args = parser.parse_args()
     SILENT = args.silent
-    N, V, data = load(args.file_path)
+    N, W, data = load(args.file_path)
     if not SILENT:
         print('Initializing population...')
-    pop=Population(data, args.population, N, V)
+    pop=Population(data, args.population, N, W)
     if not SILENT:
         print('Fitting...')
     solution = fit(pop, args.generation, mutation_probability=(args.mutation if 0 <= args.mutation <= 1 else 0.1), selection=args.selection)
@@ -217,6 +214,6 @@ if __name__ == "__main__":
         print('\nBest solution: ')
         print('\tGenes:', np.argwhere(solution.genes).tolist())
         print('\tFitness:', solution.fitness)
-        print('\tVolume:', solution.volume)
+        print('\tWeight:', solution.weight)
     else:
         print(solution.fitness)
