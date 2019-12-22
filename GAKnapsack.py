@@ -11,9 +11,9 @@ class Chromosome:
         self.fitness = 0
         self.weight = 0
 
-    def calc_fitness(self, data, constraints):
+    def calc_fitness(self, data, criterion):
         fitness = np.sum(data[self.genes], axis=0)
-        while fitness[1] > constraints:
+        while fitness[1] > criterion:
             ones = np.where(np.array(self.genes) == True)[0]
             self.genes[ones[random.randint(0, len(ones)-1)]] = False
             fitness = np.sum(data[self.genes], axis=0)
@@ -44,9 +44,9 @@ class Chromosome:
 
 
 class Population:
-    def __init__(self, data, population_size, chromosome_length, constraint):
+    def __init__(self, data, population_size, chromosome_length, criterion):
         self.data = data
-        self.constraint = constraint
+        self.criterion = criterion
         self.population_size = population_size
         self.chr_fitness = np.zeros(self.population_size)
         self.chr_weight = np.zeros(self.population_size)
@@ -64,14 +64,10 @@ class Population:
         self.chr_fitness = []
         self.chr_weight = []
         for ch in self.chromosomes:
-            f, w = ch.calc_fitness(self.data, self.constraint)
+            f, w = ch.calc_fitness(self.data, self.criterion)
             self.chr_fitness.append(f)
             self.chr_weight.append(w)
         return self
-
-    def get_fittest(self):
-        self.calc_fitness()
-        return self.chromosomes[np.argsort(self.chr_fitness)]
 
     def crossover(self, rate=0.85):
         nextgen = []
@@ -116,7 +112,7 @@ def check_condition(population):
     return max_num / len(population.chr_fitness) <= 0.9
 
 
-def fit(population, generation, mutation_probability=0.001, selection='group'):
+def fit(population, generation, mutation_probability=0.001, selection='group', crossover_rate=0.85):
     global SILENT
     current_generation = 1
     pop.calc_fitness()
@@ -128,7 +124,7 @@ def fit(population, generation, mutation_probability=0.001, selection='group'):
         elits.append(population.chromosomes.pop(0))
         elits.append(population.chromosomes.pop(0))
         population.chromosomes = selection(population)
-        population.crossover()
+        population.crossover(rate=crossover_rate)
         population.chromosomes = [ind.mutation(mutation_probability) for ind in population.chromosomes]
         for e in elits:
             population.chromosomes.append(e)
@@ -147,14 +143,14 @@ def fitness_val(ind):
 def roulette_selection(population):
     population.calc_fitness()
     selected_chromosomes = []
-    fsum = sum(ind.fitness for ind in population.chromosomes)
+    fsum = sum(chromosome.fitness for chromosome in population.chromosomes)
     for i in range(len(population.chromosomes)):
         limit = random.randint(0, fsum)
         accsum = 0
-        for ind in population.chromosomes:
-            accsum += ind.fitness
+        for chromosome in population.chromosomes:
+            accsum += chromosome.fitness
             if accsum > limit:
-                selected_chromosomes.append(ind)
+                selected_chromosomes.append(chromosome)
                 break
     return selected_chromosomes
 
@@ -194,6 +190,8 @@ if __name__ == "__main__":
                         default = 0.001, help = 'mutation probability (default: 0.001)')
     parser.add_argument('-s', '--selection', metavar='selection', type=str, choices=['group', 'roulette'],
                         default='group', help='selection algorithm (default: group)')
+    parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
+                        default=0.85, help='crossover rate (default: 0.85)')
     parser.add_argument('--silent', action='store_true', help='silence output')
     args = parser.parse_args()
     SILENT = args.silent
@@ -203,7 +201,7 @@ if __name__ == "__main__":
     pop=Population(data, args.population, N, W)
     if not SILENT:
         print('Fitting...')
-    solution = fit(pop, args.generation, mutation_probability=(args.mutation if 0 <= args.mutation <= 1 else 0.001), selection=args.selection)
+    solution = fit(pop, args.generation, mutation_probability=(args.mutation if 0 <= args.mutation <= 1 else 0.001), selection=args.selection, crossover_rate=args.crossover_rate)
     if not SILENT:
         print('\nBest solution: ')
         print('\tGenes:', np.argwhere(solution.genes).tolist())
