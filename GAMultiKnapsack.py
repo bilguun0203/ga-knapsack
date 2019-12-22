@@ -9,23 +9,33 @@ class Chromosome:
     def __init__(self, chromosome_length):
         self.genes = np.random.choice([False, True], size=chromosome_length)
         self.fitness = 0
-        self.weight = 0
+        self.weights = 0
 
-    def calc_fitness(self, data, criterion):
-        fitness = np.sum(data[self.genes], axis=0)
-        while fitness[1] > criterion:
-            ones = np.where(np.array(self.genes) == True)[0]
-            self.genes[ones[random.randint(0, len(ones)-1)]] = False
-            fitness = np.sum(data[self.genes], axis=0)
-        self.fitness = fitness[0]
-        self.weight = fitness[1]
-        return [self.fitness, self.weight]
+    def calc_fitness(self, data, criteria):
+        self.repair(data, criteria)
+        fitness = np.sum(np.array(data[0])[self.genes])
+        weights = []
+        for i, w in enumerate(np.array(data[1])):
+            weights.append(np.sum(w[self.genes]))
+        self.fitness = fitness
+        self.weights = weights
+        return [self.fitness, self.weights]
 
-    def crossover(self, chromosome, pos):
-        offspring1 = Chromosome(len(self.genes))
-        offspring2 = Chromosome(len(chromosome.genes))
+    def repair(self, data, criteria):
+        for i, w in enumerate(np.array(data[1])):
+            weight = np.sum(w[self.genes])
+            while weight > criteria[i]:
+                ones = np.where(np.array(self.genes) == True)[0]
+                self.genes[ones[random.randint(0, len(ones)-1)]] = False
+                weight = np.sum(w[self.genes])
+        return self
+
+    def crossover(self, chromosome):
+        offspring1 = Chromosome(len(self))
+        offspring2 = Chromosome(len(chromosome))
         offspring1.genes = self.genes.copy()
         offspring2.genes = chromosome.genes.copy()
+        pos = random.randint(0, len(offspring1)-1)
         tmp = offspring2.genes[pos:].copy()
         offspring2.genes[pos:], offspring1.genes[pos:] = offspring1.genes[pos:], tmp
         return offspring1, offspring2
@@ -50,10 +60,10 @@ class Population:
         self.population_size = population_size
         # Хромосомын үнэлгээ, жингүүд
         self.chr_fitness = np.zeros(self.population_size)
-        self.chr_weight = np.zeros(self.population_size)
+        self.chr_weights = np.zeros(self.population_size)
         # Шинээр үүссэн хромосомын үнэлгээ, жингүүд
         self.offs_fitness = np.zeros(self.population_size)
-        self.offs_weight = np.zeros(self.population_size)
+        self.offs_weights = np.zeros(self.population_size)
         self.chr_length = chromosome_length
         self.init_population()
         self.offsprings = []
@@ -62,34 +72,26 @@ class Population:
         self.chromosomes = [Chromosome(self.chr_length) for i in range(self.population_size)]
         return self
 
-    """ def calc_fitness(self, offspring=False):
-        fitness = []
-        weight = []
-        chromosomes = self.offsprings if offspring else self.chromosomes
-        for i in chromosomes:
-            f, v = i.calc_fitness(self.data, self.criterion)
-            fitness.append(f)
-            weight.append(v)
-        if offspring:
-            self.offs_fitness = fitness
-            self.offs_weight = weight
-        else:
-            self.chr_fitness = fitness
-            self.chr_weight = weight
-        return self """
+    def calc_fitness(self):
+        self.chr_fitness = []
+        self.chr_weights = []
+        for ch in self.chromosomes:
+            f, w = ch.calc_fitness(self.data, self.criteria)
+            self.chr_fitness.append(f)
+            self.chr_weights.append(w)
+        return self
 
-    """ def get_fittest(self):
-        self.calc_fitness()
-        return self.chromosomes[np.argsort(self.chr_fitness)] """
-
-    """ def crossover(self):
-        self.offsprings = []
-        for i in range(int(self.population_size/2)):
-            o1, o2 = self.chromosomes[random.randint(0, self.population_size-1)].crossover(
-                self.chromosomes[random.randint(0, self.population_size-1)], int(self.genes_length/2))
-            self.offsprings.append(o1)
-            self.offsprings.append(o2)
-        return self """
+    def crossover(self, rate=0.85):
+        nextgen = []
+        while len(self.chromosomes) > 1:
+            parent1 = self.chromosomes.pop(0)
+            parent2 = self.chromosomes.pop(0)
+            ng1, ng2 = parent1.crossover(parent2) if (
+                random.random() <= rate) else (parent1, parent2)
+            nextgen.append(ng1)
+            nextgen.append(ng2)
+        self.chromosomes = nextgen
+        return self
 
 
 def load(path):
@@ -98,6 +100,7 @@ def load(path):
     criteria = []
     F = []
     WEIGHTS = []
+    criteria = []
     with open(path, 'r') as f:
         # Нөхцөл болон эд зүйлсийн тоог унших
         line = f.readline()
@@ -112,8 +115,12 @@ def load(path):
                 for i in items:
                     F.append(float(i))
         # Нөхцлүүдийг унших
-        line = f.readline()
-        criteria = [float(i) for i in line.split(' ')]
+        while len(criteria) < m:
+            line = f.readline()
+            if line != '':
+                items = line.split(' ')
+                for i in items:
+                    criteria.append(float(i))
         # Эд зүйлсийн weight-үүдийг унших
         for i in range(m):
             weights = []
@@ -127,13 +134,13 @@ def load(path):
     return n, m, criteria, np.array((F, WEIGHTS)).T
 
 
-""" def check_condition(population):
+def check_condition(population):
     fitness_v = np.unique(population.chr_fitness, return_counts=True)
     max_num = np.max(fitness_v[1])
-    return max_num / len(population.chr_fitness) <= 0.9 """
+    return max_num / len(population.chr_fitness) <= 0.9
 
 
-""" def fit(population, generation, mutation_probability=0.01, selection='group'):
+def fit(population, generation, mutation_probability=0.01, selection='group', crossover_rate=0.85):
     global SILENT
     current_generation = 1
     pop.calc_fitness()
@@ -141,50 +148,47 @@ def load(path):
     while current_generation <= generation and check_condition(population):
         # print('Generation', current_generation)
         selection = group_selection if selection == 'group' else roulette_selection
+        population.chromosomes.sort(key=fitness_val, reverse=True)
+        elits = []
+        elits.append(population.chromosomes.pop(0))
+        elits.append(population.chromosomes.pop(0))
         population.chromosomes = selection(population)
+        population.crossover(rate=crossover_rate)
+        population.chromosomes = [ind.mutation(mutation_probability) for ind in population.chromosomes]
+        for e in elits:
+            population.chromosomes.append(e)
         population.calc_fitness()
-        population.crossover()
-        population.offsprings = [ind.mutation(
-            mutation_probability) for ind in population.offsprings]
-        population.calc_fitness(offspring=True)
         current_generation += 1
         best_i = np.argmax(population.chr_fitness)
         if not SILENT:
             print(population.chromosomes[best_i].fitness)
-    return population.chromosomes[best_i] """
+    return population.chromosomes[best_i]
 
 
 def fitness_val(ind):
         return ind.fitness
 
 
-""" def roulette_selection(population):
-    chromosomes = population.chromosomes + population.offsprings
-    chromosomes.sort(key=fitness_val, reverse=True)
+def roulette_selection(population):
+    population.calc_fitness()
     selected_chromosomes = []
-    selected_chromosomes.append(chromosomes.pop(0))
-    selected_chromosomes.append(chromosomes.pop(0))
-    fsum = sum(ind.fitness for ind in chromosomes)
-    for i in range(population.population_size-2):
+    fsum = sum(chromosome.fitness for chromosome in population.chromosomes)
+    for i in range(len(population.chromosomes)):
         limit = random.randint(0, fsum)
         accsum = 0
-        for ind in chromosomes:
-            accsum += ind.fitness
+        for chromosome in population.chromosomes:
+            accsum += chromosome.fitness
             if accsum > limit:
-                selected_chromosomes.append(ind)
+                selected_chromosomes.append(chromosome)
                 break
-    return selected_chromosomes """
+    return selected_chromosomes
 
 
-""" def group_selection(population):
-    chromosomes = population.chromosomes + population.offsprings
-    chromosomes.sort(key=fitness_val, reverse=True)
+def group_selection(population):
     selected_chromosomes = []
-    selected_chromosomes.append(chromosomes.pop(0))
-    selected_chromosomes.append(chromosomes.pop(0))
-    total_chromosomes = len(chromosomes)
-    for i in range(population.population_size-2):
-        perc = random.randint(0, 99)
+    total_chromosomes = len(population.chromosomes)
+    for i in range(total_chromosomes):
+        perc = random.randint(0, 100)
         bottom = 0
         top = int(total_chromosomes*0.5)
         if perc >= 50 and perc < 80:
@@ -196,8 +200,11 @@ def fitness_val(ind):
         elif perc >= 95:
             bottom = int(total_chromosomes*0.95) + 1
             top = total_chromosomes - 1
-        selected_chromosomes.append(chromosomes[random.randint(bottom, top)])
-    return selected_chromosomes """
+        if bottom >= top:
+            bottom = top-1
+        selected_chromosomes.append(
+            population.chromosomes[random.randint(bottom, top)])
+    return selected_chromosomes
 
 
 if __name__ == "__main__":
@@ -213,29 +220,35 @@ if __name__ == "__main__":
                         default=0.1, help='mutation probability (default: 0.1)')
     parser.add_argument('-s', '--selection', metavar='selection', type=str, choices=['group', 'roulette'],
                         default='group', help='selection algorithm (default: group)')
+    parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
+                        default=0.85, help='crossover rate (default: 0.85)')
     parser.add_argument('--silent', action='store_true', help='silence output')
     args = parser.parse_args()
     SILENT = args.silent
     N, M, criteria, data = load(args.file_path)
 
-    print(N)
-    print(criteria)
-    for i in data:
-        print(i)
+    # print(N)
+    # print(criteria)
+    # for i in data:
+    #     print(i)
 
     if not SILENT:
         print('Initializing population...')
     pop = Population(data, args.population, N, M, criteria)
-    for i in pop.chromosomes:
-        print(i)
-    # if not SILENT:
-    #     print('Fitting...')
-    # solution = fit(pop, args.generation, mutation_probability=(
-    #     args.mutation if 0 <= args.mutation <= 1 else 0.1), selection=args.selection)
-    # if not SILENT:
-    #     print('\nBest solution: ')
-    #     print('\tGenes:', np.argwhere(solution.genes).tolist())
-    #     print('\tFitness:', solution.fitness)
-    #     print('\tWeight:', solution.weight)
-    # else:
-    #     print(solution.fitness)
+    # for i in pop.chromosomes:
+    #     print(i)
+    pop.calc_fitness()
+    # print(pop.chr_fitness)
+    # print(pop.chr_weights)
+    if not SILENT:
+        print('Fitting...')
+    solution = fit(pop, args.generation, mutation_probability=(
+        args.mutation if 0 <= args.mutation <= 1 else 0.1), selection=args.selection)
+    if not SILENT:
+        print('\nBest solution: ')
+        print('\tGenes:', np.argwhere(solution.genes).tolist())
+        print('\tFitness:', solution.fitness)
+        print('\tWeight:', solution.weights)
+        print('\tCriteria:', criteria)
+    else:
+        print(solution.fitness)
