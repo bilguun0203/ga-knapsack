@@ -4,7 +4,7 @@ generations='100 750 1500'
 selections='group roulette'
 populations='50 100 150'
 mutation_probs='0.001 0.01'
-echo "FILE, GENERATION, SELECTION, POPULATION, MUTATION_PROB, SOLUTION, DURATION (MS)"
+echo "FILE, GENERATION, SELECTION, POPULATION, MUTATION_PROB, SOLUTION, OPTIMAL DIFF, DURATION (MS)"
 
 for file in $(ls $input_dir)
 do
@@ -19,7 +19,7 @@ do
                     for i in {1..10}
                     do
                         STARTTIME=$(date +%s%N)
-                        solution=$(python $script $input_dir$file -g $generation -p $population -s $selection -m $mutation_prob --silent)
+                        solution=$(python $script $input_dir$file -g $generation -p $population -s $selection -m $mutation_prob --silent --optimal)
                         ENDTIME=$(date +%s%N)
                         echo "$file, $generation, $selection, $population, $mutation_prob, $solution, $((($ENDTIME - $STARTTIME) / 1000000))"
                     done
