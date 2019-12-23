@@ -27,5 +27,4 @@ do
             done
         done
     done
-    echo 'Done.'
 done
