@@ -11,9 +11,9 @@ class Chromosome:
         self.fitness = 0
         self.weight = 0
 
-    def calc_fitness(self, data, criterion):
+    def calc_fitness(self, data, constraint):
         fitness = np.sum(data[self.genes], axis=0)
-        while fitness[1] > criterion:
+        while fitness[1] > constraint:
             ones = np.where(np.array(self.genes) == True)[0]
             self.genes[ones[random.randint(0, len(ones)-1)]] = False
             fitness = np.sum(data[self.genes], axis=0)
@@ -44,9 +44,9 @@ class Chromosome:
 
 
 class Population:
-    def __init__(self, data, population_size, chromosome_length, criterion):
+    def __init__(self, data, population_size, chromosome_length, constraint):
         self.data = data
-        self.criterion = criterion
+        self.constraint = constraint
         self.population_size = population_size
         self.chr_fitness = np.zeros(self.population_size)
         self.chr_weight = np.zeros(self.population_size)
@@ -64,7 +64,7 @@ class Population:
         self.chr_fitness = []
         self.chr_weight = []
         for ch in self.chromosomes:
-            f, w = ch.calc_fitness(self.data, self.criterion)
+            f, w = ch.calc_fitness(self.data, self.constraint)
             self.chr_fitness.append(f)
             self.chr_weight.append(w)
         return self
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--generation', metavar='generation', type=int,
                         default=1000, help='max generation (default: 1000)')
     parser.add_argument('-m', '--mutation', metavar='mutation', type=float,
-                        default = 0.001, help = 'mutation probability (default: 0.001)')
+                        default=0.001, help='mutation probability (default: 0.001)')
     parser.add_argument('-s', '--selection', metavar='selection', type=str, choices=['group', 'roulette'],
                         default='group', help='selection algorithm (default: group)')
     parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
@@ -198,10 +198,11 @@ if __name__ == "__main__":
     N, W, data = load(args.file_path)
     if not SILENT:
         print('Initializing population...')
-    pop=Population(data, args.population, N, W)
+    pop = Population(data, args.population, N, W)
     if not SILENT:
         print('Fitting...')
-    solution = fit(pop, args.generation, mutation_probability=(args.mutation if 0 <= args.mutation <= 1 else 0.001), selection=args.selection, crossover_rate=args.crossover_rate)
+    solution = fit(pop, args.generation, mutation_probability=(
+        args.mutation if 0 <= args.mutation <= 1 else 0.001), selection=args.selection, crossover_rate=args.crossover_rate)
     if not SILENT:
         print('\nBest solution: ')
         print('\tGenes:', np.argwhere(solution.genes).tolist())

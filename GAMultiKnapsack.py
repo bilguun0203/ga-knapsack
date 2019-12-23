@@ -11,8 +11,8 @@ class Chromosome:
         self.fitness = 0
         self.weights = 0
 
-    def calc_fitness(self, data, criteria):
-        self.repair(data, criteria)
+    def calc_fitness(self, data, constraints):
+        self.repair(data, constraints)
         fitness = np.sum(np.array(data[0])[self.genes])
         weights = []
         for i, w in enumerate(np.array(data[1])):
@@ -21,10 +21,10 @@ class Chromosome:
         self.weights = weights
         return [self.fitness, self.weights]
 
-    def repair(self, data, criteria):
+    def repair(self, data, constraints):
         for i, w in enumerate(np.array(data[1])):
             weight = np.sum(w[self.genes])
-            while weight > criteria[i]:
+            while weight > constraints[i]:
                 ones = np.where(np.array(self.genes) == True)[0]
                 self.genes[ones[random.randint(0, len(ones)-1)]] = False
                 weight = np.sum(w[self.genes])
@@ -53,10 +53,10 @@ class Chromosome:
 
 
 class Population:
-    def __init__(self, data, population_size, chromosome_length, criteria_size, criteria):
+    def __init__(self, data, population_size, chromosome_length, constraint_size, constraints):
         self.data = data
-        self.criteria = criteria
-        self.criteria_size = criteria_size
+        self.constraints = constraints
+        self.constraint_size = constraint_size
         self.population_size = population_size
         # Хромосомын үнэлгээ, жингүүд
         self.chr_fitness = np.zeros(self.population_size)
@@ -76,7 +76,7 @@ class Population:
         self.chr_fitness = []
         self.chr_weights = []
         for ch in self.chromosomes:
-            f, w = ch.calc_fitness(self.data, self.criteria)
+            f, w = ch.calc_fitness(self.data, self.constraints)
             self.chr_fitness.append(f)
             self.chr_weights.append(w)
         return self
@@ -97,10 +97,10 @@ class Population:
 def load(path):
     n = 0
     m = 0
-    criteria = []
+    constraints = []
     F = []
     WEIGHTS = []
-    criteria = []
+    constraints = []
     with open(path, 'r') as f:
         # Нөхцөл болон эд зүйлсийн тоог унших
         line = f.readline()
@@ -115,12 +115,12 @@ def load(path):
                 for i in items:
                     F.append(float(i))
         # Нөхцлүүдийг унших
-        while len(criteria) < m:
+        while len(constraints) < m:
             line = f.readline()
             if line != '':
                 items = line.split(' ')
                 for i in items:
-                    criteria.append(float(i))
+                    constraints.append(float(i))
         # Эд зүйлсийн weight-үүдийг унших
         for i in range(m):
             weights = []
@@ -131,7 +131,7 @@ def load(path):
                     for i in items:
                         weights.append(float(i))
             WEIGHTS.append(weights)
-    return n, m, criteria, np.array((F, WEIGHTS)).T
+    return n, m, constraints, np.array((F, WEIGHTS)).T
 
 
 def check_condition(population):
@@ -208,16 +208,14 @@ def group_selection(population):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='Genetic Algorightm for 0-1 Knapsack problem')
-    parser.add_argument('file_path', metavar='file_path',
-                        type=str, help='problem file path')
+    parser = argparse.ArgumentParser(description='Genetic Algorightm for 0-1 Knapsack problem')
+    parser.add_argument('file_path', metavar='file_path',type=str, help='problem file path')
     parser.add_argument('-p', '--population', metavar='population_size', type=int,
                         default=100, help='population size (default: 100)')
     parser.add_argument('-g', '--generation', metavar='generation', type=int,
                         default=1000, help='max generation (default: 1000)')
     parser.add_argument('-m', '--mutation', metavar='mutation', type=float,
-                        default=0.1, help='mutation probability (default: 0.1)')
+                        default=0.001, help='mutation probability (default: 0.1)')
     parser.add_argument('-s', '--selection', metavar='selection', type=str, choices=['group', 'roulette'],
                         default='group', help='selection algorithm (default: group)')
     parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
@@ -225,30 +223,18 @@ if __name__ == "__main__":
     parser.add_argument('--silent', action='store_true', help='silence output')
     args = parser.parse_args()
     SILENT = args.silent
-    N, M, criteria, data = load(args.file_path)
-
-    # print(N)
-    # print(criteria)
-    # for i in data:
-    #     print(i)
-
+    N, M, constraints, data = load(args.file_path)
     if not SILENT:
         print('Initializing population...')
-    pop = Population(data, args.population, N, M, criteria)
-    # for i in pop.chromosomes:
-    #     print(i)
-    pop.calc_fitness()
-    # print(pop.chr_fitness)
-    # print(pop.chr_weights)
+    pop = Population(data, args.population, N, M, constraints)
     if not SILENT:
         print('Fitting...')
     solution = fit(pop, args.generation, mutation_probability=(
-        args.mutation if 0 <= args.mutation <= 1 else 0.1), selection=args.selection)
+        args.mutation if 0 <= args.mutation <= 1 else 0.001), selection=args.selection, crossover_rate=args.crossover_rate)
     if not SILENT:
         print('\nBest solution: ')
         print('\tGenes:', np.argwhere(solution.genes).tolist())
         print('\tFitness:', solution.fitness)
         print('\tWeight:', solution.weights)
-        print('\tCriteria:', criteria)
     else:
         print(solution.fitness)
