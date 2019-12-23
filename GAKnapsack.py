@@ -81,11 +81,12 @@ class Population:
         return self
 
 
-def load(path):
+def load(path, optimal_val=False):
     n = 0
     w = 0
     F = []
     W = []
+    optimal = 0
     with open(path, 'r') as f:
         line = f.readline()
         n = int(line)
@@ -103,7 +104,11 @@ def load(path):
                 items = line.split(' ')
                 for i in items:
                     W.append(float(i))
-    return n, w, np.array((F, W)).T
+        if optimal_val:
+            line = f.readline()
+            line = f.readline()
+            optimal = float(line)
+    return n, w, np.array((F, W)).T, optimal
 
 
 def check_condition(population):
@@ -193,9 +198,10 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
                         default=0.85, help='crossover rate (default: 0.85)')
     parser.add_argument('--silent', action='store_true', help='silence output')
+    parser.add_argument('--optimal', action='store_true', help='read optimal value')
     args = parser.parse_args()
     SILENT = args.silent
-    N, W, data = load(args.file_path)
+    N, W, data, optimal = load(args.file_path, optimal_val=args.optimal)
     if not SILENT:
         print('Initializing population...')
     pop = Population(data, args.population, N, W)
@@ -208,5 +214,10 @@ if __name__ == "__main__":
         print('\tGenes:', np.argwhere(solution.genes).tolist())
         print('\tFitness:', solution.fitness)
         print('\tWeight:', solution.weight)
+        if args.optimal:
+            print('\tFitness - Optimal:', (solution.fitness - optimal))
     else:
-        print(solution.fitness)
+        if args.optimal:
+            print("{}, {}".format(solution.fitness, (solution.fitness - optimal)))
+        else:
+            print(solution.fitness)

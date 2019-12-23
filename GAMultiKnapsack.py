@@ -94,13 +94,14 @@ class Population:
         return self
 
 
-def load(path):
+def load(path, optimal_val=False):
     n = 0
     m = 0
     constraints = []
     F = []
     WEIGHTS = []
     constraints = []
+    optimal = 0
     with open(path, 'r') as f:
         # Нөхцөл болон эд зүйлсийн тоог унших
         line = f.readline()
@@ -131,7 +132,11 @@ def load(path):
                     for i in items:
                         weights.append(float(i))
             WEIGHTS.append(weights)
-    return n, m, constraints, np.array((F, WEIGHTS)).T
+        if optimal_val:
+            line = f.readline()
+            line = f.readline()
+            optimal = float(line)
+    return n, m, constraints, np.array((F, WEIGHTS)).T, optimal
 
 
 def check_condition(population):
@@ -221,9 +226,11 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--crossover_rate', metavar='crossover_rate', type=float,
                         default=0.85, help='crossover rate (default: 0.85)')
     parser.add_argument('--silent', action='store_true', help='silence output')
+    parser.add_argument('--optimal', action='store_true', help='read optimal value')
     args = parser.parse_args()
     SILENT = args.silent
-    N, M, constraints, data = load(args.file_path)
+    N, M, constraints, data, optimal = load(
+        args.file_path, optimal_val=args.optimal)
     if not SILENT:
         print('Initializing population...')
     pop = Population(data, args.population, N, M, constraints)
@@ -236,5 +243,10 @@ if __name__ == "__main__":
         print('\tGenes:', np.argwhere(solution.genes).tolist())
         print('\tFitness:', solution.fitness)
         print('\tWeight:', solution.weights)
+        if args.optimal:
+            print('\tFitness - Optimal:', (solution.fitness - optimal))
     else:
-        print(solution.fitness)
+        if args.optimal:
+            print("{}, {}".format(solution.fitness, (solution.fitness - optimal)))
+        else:
+            print(solution.fitness)
