@@ -1,7 +1,7 @@
 script=$1
 input_dir=$2
 generations='100 750 1500'
-selections='group roulette'
+selections='roulette'
 populations='50 100 150'
 mutation_probs='0.001 0.01'
 echo "FILE, GENERATION, SELECTION, POPULATION, MUTATION_PROB, SOLUTION, OPTIMAL DIFF, DURATION (MS)"
@@ -16,7 +16,7 @@ do
             do
                 for mutation_prob in $mutation_probs
                 do
-                    for i in {1..10}
+                    for i in {1..30}
                     do
                         STARTTIME=$(date +%s%N)
                         solution=$(python $script $input_dir$file -g $generation -p $population -s $selection -m $mutation_prob --silent --optimal)
