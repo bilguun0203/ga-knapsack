@@ -1,5 +1,6 @@
 script=$1
 input_dir=$2
+iterations=$3
 generations='100 750 1500'
 selections='roulette'
 populations='50 100 150'
@@ -16,7 +17,7 @@ do
             do
                 for mutation_prob in $mutation_probs
                 do
-                    for i in {1..30}
+                    for i in {1..$iterations}
                     do
                         STARTTIME=$(date +%s%N)
                         solution=$(python $script $input_dir$file -g $generation -p $population -s $selection -m $mutation_prob --silent --optimal)
