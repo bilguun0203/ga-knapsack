@@ -17,7 +17,7 @@ do
             do
                 for mutation_prob in $mutation_probs
                 do
-                    for i in {1..$iterations}
+                    for ((i=0; i<iterations; i++));
                     do
                         STARTTIME=$(date +%s%N)
                         solution=$(python $script $input_dir$file -g $generation -p $population -s $selection -m $mutation_prob --silent --optimal)
